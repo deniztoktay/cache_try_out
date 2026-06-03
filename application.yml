@@ -1,0 +1,88 @@
+server:
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: "20s"
+  task:
+    scheduling:
+      shutdown:
+        await-termination: true
+        await-termination-period: "10s"
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: mysecret
+  datasource:
+    url: jdbc:sqlserver://localhost:2023;databaseName=MLMDB_PUURS;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: "n9$b6$g1$c6$"
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: lah
+  r2dbc:
+    url: r2dbc:sqlserver://localhost:2023/MLMDB_PUURS?encrypt=false&trustServerCertificate=true
+    username: sa
+    password: "n9$b6$g1$c6$"
+
+pardus:
+  cache:
+    coordination:
+      init-lock-ttl: PT15M
+      groom-lock-ttl: PT5M
+      startup-timeout: PT30M
+      l2-ready-poll-interval: PT2S
+      l2-ready-wait-timeout: PT25M
+    l1:
+      resize-threshold: 0.95
+      growth-factor: 1.5
+      initial-max-size: 1000
+      max-max-size: 50000
+    tag:
+      namespace: tag-cache
+      ttl: PT6H
+      stream:
+        listener-enabled: true
+        retention-ttl: PT24H
+        poll-block: PT2S
+        batch-size: 32
+    attribute:
+      namespace: attribute-cache
+      ttl: PT6H
+      stream:
+        listener-enabled: true
+        retention-ttl: PT24H
+        poll-block: PT2S
+        batch-size: 32
+    attribute-tag:
+      namespace: attribute-tag-cache
+      ttl: PT6H
+      stream:
+        listener-enabled: true
+        retention-ttl: PT24H
+        poll-block: PT2S
+        batch-size: 32
+    format-type:
+      namespace: format-type-cache
+      ttl: PT6H
+    reference:
+      namespace: reference-cache
+      ttl: PT6H
+    grooming:
+      enabled: true
+      interval-ms: 300000
+      index-ttl: PT24H
+      namespaces:
+        - tag-cache
+        - attribute-cache
+        - attribute-tag-cache
+        - format-type-cache
