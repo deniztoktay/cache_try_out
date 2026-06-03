@@ -1,0 +1,46 @@
+# Profile for IT tests against docker-compose in d:\Workspaces\new_mlm\docker\docker-compose.yml
+spring:
+  task:
+    scheduling:
+      enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: mysecret
+  r2dbc:
+    url: r2dbc:sqlserver://localhost:2023/MLMDB_PUURS?encrypt=false&trustServerCertificate=true
+    username: sa
+    password: "n9$b6$g1$c6$"
+
+pardus:
+  cache:
+    startup:
+      enabled: false
+    grooming:
+      enabled: false
+    coordination:
+      l2-ready-poll-interval: PT1S
+      l2-ready-wait-timeout: PT2M
+      startup-timeout: PT5M
+    tag:
+      namespace: tag-cache-it
+      ttl: PT1H
+      stream:
+        listener-enabled: false
+    attribute:
+      namespace: attribute-cache-it
+      ttl: PT1H
+      stream:
+        listener-enabled: false
+    attribute-tag:
+      namespace: attribute-tag-cache-it
+      ttl: PT1H
+      stream:
+        listener-enabled: false
+    format-type:
+      namespace: format-type-cache-it
+      ttl: PT1H
+    reference:
+      namespace: reference-cache-it
+      ttl: PT1H
