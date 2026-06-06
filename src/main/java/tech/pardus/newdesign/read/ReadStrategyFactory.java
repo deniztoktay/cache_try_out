@@ -4,7 +4,6 @@ import java.util.function.Function;
 import tech.pardus.newdesign.cachekey.ApplicationCache;
 import tech.pardus.newdesign.cachekey.CacheKey;
 import tech.pardus.newdesign.cachekey.CacheKeyFactory;
-import tech.pardus.newdesign.l1.CaffeineL1EntityMapCache;
 import tech.pardus.newdesign.l1.L1EntityMapCache;
 import tech.pardus.newdesign.redis.codec.ListPayloadCodec;
 import tech.pardus.newdesign.redis.codec.ValuePayloadCodec;
@@ -22,24 +21,19 @@ public final class ReadStrategyFactory {
       ApplicationCache cache,
       RedisByteStore redisStore,
       ValuePayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
-    return createSingleValue(cacheKeyFactory.get(cache), redisStore, codec, idExtractor);
-  }
-
-  public static <T> SingleValueReadStrategy<T> createSingleValue(
-      CacheKeyFactory cacheKeyFactory,
-      ApplicationCache cache,
-      RedisByteStore redisStore,
-      ValuePayloadCodec<T> codec) {
-    return createSingleValue(cacheKeyFactory.get(cache), redisStore, codec, value -> null);
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
+    return createSingleValue(
+        cacheKeyFactory.get(cache), redisStore, codec, idExtractor, l1);
   }
 
   public static <T> SingleValueReadStrategy<T> createSingleValue(
       CacheKey cacheKey,
       RedisByteStore redisStore,
       ValuePayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
-    return createSingleValue(cacheKey, cacheKey.readTier(), redisStore, codec, idExtractor);
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
+    return createSingleValue(cacheKey, cacheKey.readTier(), redisStore, codec, idExtractor, l1);
   }
 
   public static <T> SingleValueReadStrategy<T> createSingleValue(
@@ -47,23 +41,26 @@ public final class ReadStrategyFactory {
       ReadTier tier,
       RedisByteStore redisStore,
       ValuePayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
     return switch (tier) {
       case DB_ONLY -> new DbOnlySingleValueStrategy<>();
       case L2_ONLY ->
           new L2OnlySingleValueStrategy<>(
               new RedisSingleValueReader<>(cacheKey, redisStore, codec));
-      case L1_L2 -> {
-        if (!cacheKey.supportsL1()) {
-          throw new IllegalStateException(
-              "L1_L2 requires positive maxCapacity on CacheKey: " + cacheKey.getKey());
-        }
-        L1EntityMapCache<T> l1 = new CaffeineL1EntityMapCache<>(cacheKey);
-        RedisSingleValueReader<T> redis =
-            new RedisSingleValueReader<>(cacheKey, redisStore, codec);
-        yield new L1L2SingleValueReadStrategy<>(l1, redis, idExtractor);
-      }
+      case L1_L2 -> createL1L2SingleValue(cacheKey, redisStore, codec, l1, idExtractor);
     };
+  }
+
+  public static <T> L1L2SingleValueReadStrategy<T> createL1L2SingleValue(
+      CacheKey cacheKey,
+      RedisByteStore redisStore,
+      ValuePayloadCodec<T> codec,
+      L1EntityMapCache<T> l1,
+      Function<T, String> idExtractor) {
+    requireL1(cacheKey, l1);
+    return new L1L2SingleValueReadStrategy<>(
+        l1, new RedisSingleValueReader<>(cacheKey, redisStore, codec), idExtractor);
   }
 
   public static <T> GroupedCollectionReadStrategy<T> createGroupedCollection(
@@ -71,16 +68,19 @@ public final class ReadStrategyFactory {
       ApplicationCache cache,
       RedisByteStore redisStore,
       ListPayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
-    return createGroupedCollection(cacheKeyFactory.get(cache), redisStore, codec, idExtractor);
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
+    return createGroupedCollection(
+        cacheKeyFactory.get(cache), redisStore, codec, idExtractor, l1);
   }
 
   public static <T> GroupedCollectionReadStrategy<T> createGroupedCollection(
       CacheKey cacheKey,
       RedisByteStore redisStore,
       ListPayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
-    return createGroupedCollection(cacheKey, cacheKey.readTier(), redisStore, codec, idExtractor);
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
+    return createGroupedCollection(cacheKey, cacheKey.readTier(), redisStore, codec, idExtractor, l1);
   }
 
   public static <T> GroupedCollectionReadStrategy<T> createGroupedCollection(
@@ -88,23 +88,26 @@ public final class ReadStrategyFactory {
       ReadTier tier,
       RedisByteStore redisStore,
       ListPayloadCodec<T> codec,
-      Function<T, String> idExtractor) {
+      Function<T, String> idExtractor,
+      L1EntityMapCache<T> l1) {
     return switch (tier) {
       case DB_ONLY -> new DbOnlyGroupedCollectionStrategy<>();
       case L2_ONLY ->
           new L2OnlyGroupedCollectionStrategy<>(
               new RedisGroupedCollectionReader<>(cacheKey, redisStore, codec));
-      case L1_L2 -> {
-        if (!cacheKey.supportsL1()) {
-          throw new IllegalStateException(
-              "L1_L2 requires positive maxCapacity on CacheKey: " + cacheKey.getKey());
-        }
-        L1EntityMapCache<T> l1 = new CaffeineL1EntityMapCache<>(cacheKey);
-        RedisGroupedCollectionReader<T> redis =
-            new RedisGroupedCollectionReader<>(cacheKey, redisStore, codec);
-        yield new L1L2GroupedCollectionStrategy<>(l1, redis, idExtractor);
-      }
+      case L1_L2 -> createL1L2GroupedCollection(cacheKey, redisStore, codec, l1, idExtractor);
     };
+  }
+
+  public static <T> L1L2GroupedCollectionStrategy<T> createL1L2GroupedCollection(
+      CacheKey cacheKey,
+      RedisByteStore redisStore,
+      ListPayloadCodec<T> codec,
+      L1EntityMapCache<T> l1,
+      Function<T, String> idExtractor) {
+    requireL1(cacheKey, l1);
+    return new L1L2GroupedCollectionStrategy<>(
+        l1, new RedisGroupedCollectionReader<>(cacheKey, redisStore, codec), idExtractor);
   }
 
   public static <T> L1L2SingleValueReadStrategy<T> requireL1L2SingleValue(
@@ -121,5 +124,16 @@ public final class ReadStrategyFactory {
       return l1L2;
     }
     throw new IllegalStateException("Expected L1_L2 strategy but was " + strategy.tier());
+  }
+
+  private static void requireL1(CacheKey cacheKey, L1EntityMapCache<?> l1) {
+    if (!cacheKey.supportsL1()) {
+      throw new IllegalStateException(
+          "L1_L2 requires positive maxCapacity on CacheKey: " + cacheKey.getKey());
+    }
+    if (l1 == null) {
+      throw new IllegalStateException(
+          "L1EntityMapCache bean is required for L1_L2 cache: " + cacheKey.getKey());
+    }
   }
 }
